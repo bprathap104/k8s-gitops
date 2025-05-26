@@ -1,0 +1,85 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-image-updater
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    chart: argocd-image-updater
+    repoURL: https://argoproj.github.io/argo-helm
+    targetRevision: 0.9.1
+    helm:
+      releaseName: argocd-image-updater
+      values: |
+        # ArgoCD Image Updater Configuration
+        replicaCount: 1
+
+        image:
+          repository: quay.io/argoprojlabs/argocd-image-updater
+          pullPolicy: Always
+
+        # Resources
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+
+        # Configuration
+        config:
+          # ArgoCD configuration
+          argocd:
+            grpcWeb: true
+            serverAddress: "argocd-server.argocd.svc.cluster.local:443"
+            insecure: false
+            plaintext: false
+          
+          # Registries configuration
+          registries: []
+            # - name: Docker Hub
+            #   api_url: https://registry-1.docker.io
+            #   credentials: pullsecret:argocd/registry-creds
+            #   default: true
+
+        # Service account
+        serviceAccount:
+          create: true
+
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+
+        podSecurityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+
+        # Metrics
+        metrics:
+          enabled: true
+          serviceMonitor:
+            enabled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
